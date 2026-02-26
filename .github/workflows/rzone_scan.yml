@@ -14,7 +14,7 @@ on:
     - cron: '0 3 * * 1-5'
 
 permissions:
-  contents: write   # needed to push commits back to repo
+  contents: read   # public repo only needs read; exports go to private repo
 
 jobs:
   scan:
@@ -51,17 +51,34 @@ jobs:
       - name: Run RZone Scanner (headless)
         run: python ci/rzone_scanner_ci.py
 
-      - name: Commit exported CSVs to repo
+      - name: Push exported CSVs to private repo
         if: always()
+        env:
+          EXPORTS_REPO_TOKEN: ${{ secrets.EXPORTS_REPO_TOKEN }}
         run: |
+          # Check if any exports were produced
+          if [ ! -d "exports" ] || [ -z "$(ls -A exports/ 2>/dev/null)" ]; then
+            echo "No export files found — skipping push to private repo."
+            exit 0
+          fi
+
+          # Clone the private exports repo using token
+          git clone https://x-access-token:${EXPORTS_REPO_TOKEN}@github.com/atulb-1/rzone-exports.git private_exports
+
+          # Copy today's exports into the private repo (date subfolder already created by scanner)
+          cp -r exports/* private_exports/
+
+          # Commit and push
+          cd private_exports
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add exports/ -f
+          git add .
           if git diff --cached --quiet; then
-            echo "No new export files to commit."
+            echo "No new files to commit to private repo."
           else
-            git commit -m "📊 Scan exports $(date +'%d-%m-%Y %H:%M') UTC"
+            git commit -m "📊 Scan exports $(date +'%d-%m-%Y') — run #${{ github.run_number }}"
             git push
+            echo "Exports pushed to private repo successfully."
           fi
 
       - name: Upload debug screenshots
@@ -73,6 +90,6 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
-      - name: Clean up config.ini (contains secrets)
+      - name: Clean up secrets
         if: always()
         run: rm -f config.ini

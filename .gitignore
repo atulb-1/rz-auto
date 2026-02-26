@@ -1,13 +1,13 @@
 # Credentials — NEVER commit
 config.ini
 config - Copy.ini
+token_rzone_push_exports_repo.txt
 # Virtual environment
 venv/
 
-# Downloads (local only — not CI exports)
+# Downloads and exports (local only — CI pushes to private rzone-exports repo)
 downloads/
-
-# DO NOT add exports/ here — CI commits CSVs to exports/ folder
+exports/
 
 # Debug screenshots
 screenshots/
