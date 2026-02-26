@@ -1,10 +1,10 @@
 @echo off
-title Definedge RZone Momentum Scanner
+title DefineE RZ Momentum Scanner
 color 0A
 
 echo.
 echo  ================================================
-echo    Definedge RZone Momentum Scanner Automation
+echo    DefineE RZ Momentum Scanner Automation
 echo  ================================================
 echo.
 
@@ -41,7 +41,7 @@ if exist "venv\Scripts\activate.bat" (
 
 echo  Starting fully automated scan...
 echo.
-python rzone_scanner.py
+python rz_scanner.py
 
 if errorlevel 1 (
     echo.

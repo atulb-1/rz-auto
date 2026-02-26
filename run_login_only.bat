@@ -1,10 +1,10 @@
 @echo off
-title Definedge RZone — Login Only
+title DefineE RZ — Login Only
 color 0B
 
 echo.
 echo  ================================================
-echo    Definedge RZone — Login Only
+echo    DefineE RZ — Login Only
 echo    (Logs in + I Agree, then you take over)
 echo  ================================================
 echo.
@@ -38,7 +38,7 @@ if exist "venv\Scripts\activate.bat" (
 
 echo  Starting login automation...
 echo.
-python rzone_login_only.py
+python rz_login_only.py
 
 echo.
 pause

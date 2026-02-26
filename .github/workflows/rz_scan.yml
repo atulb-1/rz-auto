@@ -1,4 +1,4 @@
-name: RZone Momentum Scanner
+name: RZ Momentum Scanner
 
 on:
   # Manual trigger with optional strategy override
@@ -39,17 +39,18 @@ jobs:
 
       - name: Build config.ini from secrets
         env:
-          RZONE_UCC: ${{ secrets.RZONE_UCC }}
-          RZONE_PASSWORD: ${{ secrets.RZONE_PASSWORD }}
-          RZONE_TOTP_SECRET: ${{ secrets.RZONE_TOTP_SECRET }}
-          RZONE_STRATEGIES: ${{ inputs.strategies || secrets.RZONE_STRATEGIES }}
-          RZONE_DOWNLOAD_DIR: ./exports
-          RZONE_TG_BOT_TOKEN: ${{ secrets.RZONE_TG_BOT_TOKEN }}
-          RZONE_TG_CHAT_ID: ${{ secrets.RZONE_TG_CHAT_ID }}
+          RZ_UCC: ${{ secrets.RZONE_UCC }}
+          RZ_PASSWORD: ${{ secrets.RZONE_PASSWORD }}
+          RZ_TOTP_SECRET: ${{ secrets.RZONE_TOTP_SECRET }}
+          RZ_STRATEGIES: ${{ inputs.strategies || secrets.RZONE_STRATEGIES }}
+          RZ_DOWNLOAD_DIR: ./exports
+          RZ_TG_BOT_TOKEN: ${{ secrets.RZONE_TG_BOT_TOKEN }}
+          RZ_TG_CHAT_ID: ${{ secrets.RZONE_TG_CHAT_ID }}
+          RZ_LOGIN_URL: ${{ secrets.RZONE_LOGIN_URL }}
         run: python ci/build_config.py
 
-      - name: Run RZone Scanner (headless)
-        run: python ci/rzone_scanner_ci.py
+      - name: Run RZ Scanner (headless)
+        run: python ci/rz_scanner_ci.py
 
       - name: Push exported CSVs to private repo
         if: always()

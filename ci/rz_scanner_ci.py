@@ -1,12 +1,12 @@
 """
-Definedge RZone Momentum Scanner — CI / GitHub Actions Version
-===============================================================
+DefineE RZ Momentum Scanner — CI / GitHub Actions Version
+==========================================================
 Headless Chromium, reads config.ini (built by build_config.py from env vars),
 saves screenshots on failure for debugging, uploads artifacts.
 
 Usage (CI):
     python ci/build_config.py        # generates config.ini from env vars
-    python ci/rzone_scanner_ci.py    # runs headless scan
+    python ci/rz_scanner_ci.py       # runs headless scan
 """
 
 import asyncio
@@ -111,7 +111,7 @@ async def save_screenshot(page, name):
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
 async def run():
-    separator("Definedge RZone Scanner — CI / Headless Mode")
+    separator("DefineE RZ Scanner — CI / Headless Mode")
     log(f"Strategies : {STRATEGIES}")
     log(f"Save folder: {DOWNLOAD_DIR}")
     log(f"Date suffix: {DATE_STR}")
@@ -122,7 +122,7 @@ async def run():
         log("ERROR: No strategies configured.")
         sys.exit(1)
 
-    tg(f"🚀 <b>RZone Scanner Started (CI)</b>\n"
+    tg(f"🚀 <b>RZ Scanner Started (CI)</b>\n"
        f"Strategies: {len(STRATEGIES)}\n"
        f"Date: {DATE_STR}")
 
@@ -154,12 +154,8 @@ async def run():
         separator("STEP 1: Opening Login Page")
         login_url = config["CREDENTIALS"].get("URL", "").strip()
         if not login_url:
-            login_url = (
-                "https://signin.definedgesecurities.com/auth/realms/debroking/"
-                "protocol/openid-connect/auth?response_type=code&client_id=dashboard"
-                "&redirect_uri=https://myaccount.definedgesecurities.com/ssologin"
-                "&state=e2cf559f-356c-425a-87e3-032097f643d0&login=true&scope=openid"
-            )
+            log("ERROR: Login URL not set. Add it to config.ini [CREDENTIALS] URL, or set RZ_LOGIN_URL secret.")
+            sys.exit(1)
         log("Navigating to login URL...")
         page1 = page  # In CI, go directly — no home page popup dance
         await page1.goto(login_url, wait_until="domcontentloaded", timeout=60000)
@@ -227,14 +223,14 @@ async def run():
 
 
         # ── STEP 6: Analyse & Trade → Opens RZone popup ──────────────────────
-        separator("STEP 6: RZone → Analyse & Trade")
+        separator("STEP 6: RZ → Analyse & Trade")
         log("Clicking Analyse & Trade button...")
         async with page1.expect_popup() as page2_info:
             await analyse_btn.click()
         page2 = await page2_info.value
-        log(f"RZone popup captured →  {page2.url}")
+        log(f"RZ popup captured →  {page2.url}")
 
-        # RZone SPA does client-side redirects — wait for page to stabilize
+        # RZ SPA does client-side redirects — wait for page to stabilize
         log("Waiting for RZone page to settle...")
         for _ in range(30):
             try:
@@ -248,8 +244,8 @@ async def run():
                 await asyncio.sleep(1)
 
         await asyncio.sleep(1)
-        log(f"RZone page ready →  {page2.url}")
-        await save_screenshot(page2, "rzone_loaded")
+        log(f"RZ page ready →  {page2.url}")
+        await save_screenshot(page2, "rz_loaded")
 
 
         # ── STEP 7: I Agree (may or may not appear) ─────────────────────────
@@ -332,7 +328,7 @@ async def run():
         await page2.get_by_role("button", name="Scan").wait_for(state="visible", timeout=30000)
         log("Momentum Investing Scanner opened")
 
-        notify("✅ RZone Momentum Scanner ready")
+        notify("✅ RZ Momentum Scanner ready")
         await save_screenshot(page2, "scanner_ready")
 
 
@@ -351,13 +347,13 @@ async def run():
                         notify(f"🔄 Retrying <b>{strategy}</b> (attempt {attempt})")
                         await asyncio.sleep(3)
 
-                    # 9a. Check Momentify checkbox
-                    log("Checking Momentify checkbox...")
-                    momentify_label = page2.get_by_role("cell", name=re.compile(r"Group\s*:")).locator("label")
-                    await momentify_label.wait_for(state="visible", timeout=15000)
-                    await momentify_label.click()
+                    # 9a. Check Mmfy checkbox
+                    log("Checking Mmfy checkbox...")
+                    mmfy_label = page2.get_by_role("cell", name=re.compile(r"Group\s*:")).locator("label")
+                    await mmfy_label.wait_for(state="visible", timeout=15000)
+                    await mmfy_label.click()
                     await asyncio.sleep(0.3)
-                    log("Momentify: checked")
+                    log("Mmfy: checked")
 
                     # 9b. Select strategy from dropdown
                     log(f"Selecting strategy: '{strategy}'")
@@ -385,13 +381,13 @@ async def run():
                     await asyncio.sleep(0.8)
                     log(f"Strategy '{strategy}' selected")
 
-                    # 9c. Uncheck Momentify checkbox
-                    log("Unchecking Momentify checkbox...")
-                    momentify_label_after = page2.get_by_role("cell", name=re.compile(r"Group\s*:")).locator("label")
-                    await momentify_label_after.wait_for(state="visible", timeout=10000)
-                    await momentify_label_after.click()
+                    # 9c. Uncheck Mmfy checkbox
+                    log("Unchecking Mmfy checkbox...")
+                    mmfy_label_after = page2.get_by_role("cell", name=re.compile(r"Group\s*:")).locator("label")
+                    await mmfy_label_after.wait_for(state="visible", timeout=10000)
+                    await mmfy_label_after.click()
                     await asyncio.sleep(0.8)
-                    log("Momentify: unchecked")
+                    log("Mmfy: unchecked")
 
                     # 9c2. Market trend Filter — only if enabled
                     market_filter_btn = page2.get_by_text(re.compile(r"Market.*trend.*Filter|Market.*Filter", re.IGNORECASE)).first
@@ -746,7 +742,7 @@ async def run():
 
         summary = "\n".join(results)
         log(f"\nResults:\n{summary}")
-        tg(f"🏁 <b>RZone Scanner Complete (CI)</b>\n\n"
+        tg(f"🏁 <b>RZ Scanner Complete (CI)</b>\n\n"
            + "\n".join(results)
            + f"\n\nDate: {DATE_STR}")
 
@@ -761,7 +757,7 @@ async def main():
         await run()
     except Exception as fatal:
         log(f"FATAL ERROR: {fatal}")
-        notify(f"❌ <b>RZone Scanner CRASHED</b>\n{fatal}")
+        notify(f"❌ <b>RZ Scanner CRASHED</b>\n{fatal}")
         raise
 
 

@@ -1,6 +1,6 @@
 """
-Definedge RZone Momentum Scanner Automation
-============================================
+DefineE RZ Momentum Scanner Automation
+=======================================
 Fully automated: login, OTP, scan, export, Telegram notifications.
 
 Setup:
@@ -8,7 +8,7 @@ Setup:
     playwright install chromium
 
 Usage:
-    python rzone_scanner.py
+    python rz_scanner.py
 """
 
 import asyncio
@@ -102,7 +102,7 @@ def notify(msg):
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
 async def run():
-    separator("Definedge RZone Scanner Automation Starting")
+    separator("DefineE RZ Scanner Automation Starting")
     log(f"Strategies : {STRATEGIES}")
     log(f"Save folder: {DOWNLOAD_DIR}")
     log(f"Date suffix: {DATE_STR}")
@@ -112,7 +112,7 @@ async def run():
         log("ERROR: No strategies found in config.ini [STRATEGIES] LIST.")
         sys.exit(1)
 
-    tg(f"🚀 <b>RZone Scanner Started</b>\n"
+    tg(f"🚀 <b>RZ Scanner Started</b>\n"
        f"Strategies: {len(STRATEGIES)}\n"
        f"Date: {DATE_STR}")
 
@@ -131,7 +131,7 @@ async def run():
 
 
         # ── STEP 1: Home Page ────────────────────────────────────────────────
-        separator("STEP 1: Opening Definedge Home Page")
+        separator("STEP 1: Opening DefineE Home Page")
         await page.goto("https://www.definedgesecurities.com/", wait_until="domcontentloaded", timeout=60000)
         log("Home page loaded.")
 
@@ -215,14 +215,14 @@ async def run():
 
 
         # ── STEP 6: Analyse & Trade → Opens RZone popup ──────────────────────
-        separator("STEP 6: RZone → Analyse & Trade")
+        separator("STEP 6: RZ → Analyse & Trade")
         log("Clicking Analyse & Trade button...")
         async with page1.expect_popup() as page2_info:
             await analyse_btn.click()
         page2 = await page2_info.value
-        log(f"RZone popup captured →  {page2.url}")
+        log(f"RZ popup captured →  {page2.url}")
 
-        # RZone SPA does client-side redirects — wait for page to stabilize
+        # RZ SPA does client-side redirects — wait for page to stabilize
         log("Waiting for RZone page to settle...")
         for attempt in range(30):  # up to 15 seconds
             try:
@@ -238,7 +238,7 @@ async def run():
 
         await page2.bring_to_front()
         await asyncio.sleep(1)
-        log(f"RZone page ready ✅  →  {page2.url}")
+        log(f"RZ page ready ✅  →  {page2.url}")
 
 
         # ── STEP 7: I Agree (may or may not appear) ─────────────────────────
@@ -331,7 +331,7 @@ async def run():
         await page2.get_by_role("button", name="Scan").wait_for(state="visible", timeout=30000)
         log("Momentum Investing Scanner opened ✅")
 
-        notify("✅ RZone Momentum Scanner ready")
+        notify("✅ RZ Momentum Scanner ready")
 
 
         # ── STEP 9: Loop through strategies ─────────────────────────────────
@@ -350,13 +350,13 @@ async def run():
                         notify(f"🔄 Retrying <b>{strategy}</b> (attempt {attempt})")
                         await asyncio.sleep(3)
 
-                    # 9a. Check Momentify checkbox
-                    log("Checking Momentify checkbox...")
-                    momentify_label = page2.get_by_role("cell", name=re.compile(r"Group\s*:")).locator("label")
-                    await momentify_label.wait_for(state="visible", timeout=15000)
-                    await momentify_label.click()
+                    # 9a. Check Mmfy checkbox
+                    log("Checking Mmfy checkbox...")
+                    mmfy_label = page2.get_by_role("cell", name=re.compile(r"Group\s*:")).locator("label")
+                    await mmfy_label.wait_for(state="visible", timeout=15000)
+                    await mmfy_label.click()
                     await asyncio.sleep(0.3)
-                    log("Momentify: checked ✅")
+                    log("Mmfy: checked ✅")
 
                     # 9b. Select strategy from dropdown
                     log(f"Selecting strategy: '{strategy}'")
@@ -384,13 +384,13 @@ async def run():
                     await asyncio.sleep(0.8)
                     log(f"Strategy '{strategy}' selected ✅")
 
-                    # 9c. Uncheck Momentify checkbox
-                    log("Unchecking Momentify checkbox...")
-                    momentify_label_after = page2.get_by_role("cell", name=re.compile(r"Group\s*:")).locator("label")
-                    await momentify_label_after.wait_for(state="visible", timeout=10000)
-                    await momentify_label_after.click()
+                    # 9c. Uncheck Mmfy checkbox
+                    log("Unchecking Mmfy checkbox...")
+                    mmfy_label_after = page2.get_by_role("cell", name=re.compile(r"Group\s*:")).locator("label")
+                    await mmfy_label_after.wait_for(state="visible", timeout=10000)
+                    await mmfy_label_after.click()
                     await asyncio.sleep(0.8)
-                    log("Momentify: unchecked ✅")
+                    log("Mmfy: unchecked ✅")
 
                     # 9c2. Market trend Filter — only if enabled
                     market_filter_btn = page2.get_by_text(re.compile(r"Market.*trend.*Filter|Market.*Filter", re.IGNORECASE)).first
@@ -751,7 +751,7 @@ async def run():
         # Final summary
         summary = "\n".join(results)
         log(f"\nResults:\n{summary}")
-        tg(f"🏁 <b>RZone Scanner Complete</b>\n\n"
+        tg(f"🏁 <b>RZ Scanner Complete</b>\n\n"
            + "\n".join(results)
            + f"\n\n📁 Saved to: {DOWNLOAD_DIR}")
 

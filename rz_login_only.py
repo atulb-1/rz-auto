@@ -1,7 +1,7 @@
 """
-Definedge RZone — Login Only (up to I Agree)
-=============================================
-Automates login, OTP, navigates to RZone, clicks I Agree, then hands control to you.
+DefineE RZ — Login Only (up to I Agree)
+========================================
+Automates login, OTP, navigates to RZ, clicks I Agree, then hands control to you.
 Browser stays open until you close this script.
 
 Setup:
@@ -9,7 +9,7 @@ Setup:
     playwright install chromium
 
 Usage:
-    python rzone_login_only.py
+    python rz_login_only.py
 """
 
 import asyncio
@@ -58,8 +58,8 @@ def separator(title=""):
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
 async def run():
-    separator("Definedge RZone — Login Only")
-    log("This script logs in and opens RZone, then you take over.")
+    separator("DefineE RZ — Login Only")
+    log("This script logs in and opens RZ, then you take over.")
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(
@@ -76,7 +76,7 @@ async def run():
 
 
         # ── STEP 1: Home Page ────────────────────────────────────────────────
-        separator("STEP 1: Opening Definedge Home Page")
+        separator("STEP 1: Opening DefineE Home Page")
         await page.goto("https://www.definedgesecurities.com/", wait_until="domcontentloaded", timeout=60000)
         log("Home page loaded.")
 
@@ -158,14 +158,14 @@ async def run():
 
 
         # ── STEP 6: Analyse & Trade → Opens RZone popup ──────────────────────
-        separator("STEP 6: RZone → Analyse & Trade")
+        separator("STEP 6: RZ → Analyse & Trade")
         log("Clicking Analyse & Trade button...")
         async with page1.expect_popup() as page2_info:
             await analyse_btn.click()
         page2 = await page2_info.value
-        log(f"RZone popup captured →  {page2.url}")
+        log(f"RZ popup captured →  {page2.url}")
 
-        # RZone SPA does client-side redirects — wait for page to stabilize
+        # RZ SPA does client-side redirects — wait for page to stabilize
         log("Waiting for RZone page to settle...")
         for attempt in range(30):  # up to 15 seconds
             try:
@@ -180,7 +180,7 @@ async def run():
 
         await page2.bring_to_front()
         await asyncio.sleep(1)
-        log(f"RZone page ready ✅  →  {page2.url}")
+        log(f"RZ page ready ✅  →  {page2.url}")
 
 
         # ── STEP 7: I Agree ──────────────────────────────────────────────────

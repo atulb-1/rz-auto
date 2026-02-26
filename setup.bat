@@ -1,10 +1,10 @@
 @echo off
-title RZone Scanner — First-Time Setup
+title RZ Scanner — First-Time Setup
 color 0E
 
 echo.
 echo  ====================================================
-echo    Definedge RZone Scanner — First-Time Setup
+echo    DefineE RZ Scanner — First-Time Setup
 echo  ====================================================
 echo.
 echo  This script will:

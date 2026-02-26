@@ -1,6 +1,7 @@
 # Credentials — NEVER commit
 config.ini
 config - Copy.ini
+token_rz_push_exports_repo.txt
 token_rzone_push_exports_repo.txt
 # Virtual environment
 venv/
