@@ -604,6 +604,87 @@ async def run():
 
                     await asyncio.sleep(1)
 
+                    # 9e2. Post-scan check: Validation Filter popup may appear
+                    #      at the same instant as "Scan Completed" / Export enabled.
+                    #      Check again AFTER the loop exits, before trying to export.
+                    try:
+                        if await validation_popup.first.is_visible():
+                            log("Validation Filter popup detected (post-scan)!")
+                            await save_screenshot(page2, f"validation_popup_{strategy}")
+                            filter_not_qualified = True
+
+                            # Close the popup
+                            log("Closing popup...")
+                            close_btn = page2.locator("xpath=/html/body/div[7]/div/table/tbody/tr[3]/td/div/table/tbody/tr/td/button")
+                            closed = False
+                            try:
+                                await close_btn.wait_for(state="visible", timeout=3000)
+                                await close_btn.click()
+                                closed = True
+                            except PlaywrightTimeout:
+                                pass
+                            if not closed:
+                                try:
+                                    await page2.get_by_role("button", name=re.compile(r"Close|OK", re.IGNORECASE)).first.click()
+                                    closed = True
+                                except Exception:
+                                    pass
+                            if not closed:
+                                try:
+                                    await page2.keyboard.press("Escape")
+                                except Exception:
+                                    pass
+                            await asyncio.sleep(1)
+                            log("Popup closed.")
+
+                            # Uncheck Market trend filter
+                            log("Unchecking Market trend filter...")
+                            market_filter_cb = page2.locator(
+                                "xpath=/html/body/div[4]/div[2]/div/div[2]/div[3]/div/div[3]"
+                                "/div/div/div[2]/div/table[1]/tbody/tr[1]/td[5]/table/tbody/tr/td[1]"
+                            )
+                            try:
+                                await market_filter_cb.wait_for(state="visible", timeout=3000)
+                                await market_filter_cb.click()
+                            except PlaywrightTimeout:
+                                try:
+                                    mf = page2.get_by_role("cell", name=re.compile(r"Market.*Filter|Market.*Trend", re.IGNORECASE)).locator("label, input, span").first
+                                    await mf.click()
+                                except Exception:
+                                    log("Could not uncheck Market trend filter")
+                            await asyncio.sleep(0.5)
+                            log("Market trend filter unchecked")
+                            notify(f"⚠️ <b>{strategy}</b>: Filter not qualified — re-scanning without market filter")
+
+                            # Re-scan
+                            log("Re-scanning without market filter...")
+                            await page2.get_by_role("button", name="Scan").click()
+                            log("Re-scan started...")
+
+                            # Wait for re-scan to complete
+                            rescan_start = time.time()
+                            while time.time() - rescan_start < HARD_TIMEOUT_SECS:
+                                try:
+                                    if await export_btn.is_visible() and await export_btn.is_enabled():
+                                        log(f"Re-scan completed! ({int(time.time()-rescan_start)}s)")
+                                        scan_done = True
+                                        break
+                                except Exception:
+                                    pass
+                                try:
+                                    zero_scrips = page2.get_by_text(re.compile(r"Qualified Scrips\s*:\s*0", re.IGNORECASE))
+                                    if await zero_scrips.first.is_visible():
+                                        log(f"Re-scan: 0 qualified scrips ({int(time.time()-rescan_start)}s)")
+                                        no_qualified_scrips = True
+                                        scan_done = True
+                                        break
+                                except Exception:
+                                    pass
+                                await asyncio.sleep(0.5)
+                            await asyncio.sleep(1)
+                    except Exception as vf_err:
+                        log(f"Post-scan validation check error (non-fatal): {vf_err}")
+
                     # 9f. Export / save file
                     if scan_done and no_qualified_scrips:
                         filename  = f"{strategy}_{DATE_STR}_No_Qualified_Scrips.csv"
