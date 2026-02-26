@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__mcp-registry__search_mcp_registry",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:scrapling.readthedocs.io)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)"
+    ]
+  }
+}

@@ -1,0 +1,71 @@
+name: RZone Momentum Scanner
+
+on:
+  # Manual trigger with optional strategy override
+  workflow_dispatch:
+    inputs:
+      strategies:
+        description: 'Comma-separated strategies (leave empty to use default from secrets)'
+        required: false
+        type: string
+
+  # Scheduled: 8:30 AM IST = 3:00 AM UTC daily (Monday–Friday)
+  schedule:
+    - cron: '0 3 * * 1-5'
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120  # 2 hour hard limit for the entire job
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install chromium
+          playwright install-deps chromium
+
+      - name: Build config.ini from secrets
+        env:
+          RZONE_UCC: ${{ secrets.RZONE_UCC }}
+          RZONE_PASSWORD: ${{ secrets.RZONE_PASSWORD }}
+          RZONE_TOTP_SECRET: ${{ secrets.RZONE_TOTP_SECRET }}
+          RZONE_STRATEGIES: ${{ inputs.strategies || secrets.RZONE_STRATEGIES }}
+          RZONE_DOWNLOAD_DIR: ./downloads
+          RZONE_TG_BOT_TOKEN: ${{ secrets.RZONE_TG_BOT_TOKEN }}
+          RZONE_TG_CHAT_ID: ${{ secrets.RZONE_TG_CHAT_ID }}
+        run: python ci/build_config.py
+
+      - name: Run RZone Scanner (headless)
+        run: python ci/rzone_scanner_ci.py
+
+      - name: Upload exported CSVs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rzone-exports-${{ github.run_number }}
+          path: downloads/
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Upload debug screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshots-${{ github.run_number }}
+          path: screenshots/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Clean up config.ini (contains secrets)
+        if: always()
+        run: rm -f config.ini

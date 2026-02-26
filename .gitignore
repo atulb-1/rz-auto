@@ -1,0 +1,20 @@
+# Credentials — NEVER commit
+config.ini
+
+# Virtual environment
+venv/
+
+# Downloads (local)
+downloads/
+
+# Debug screenshots
+screenshots/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+Thumbs.db
+.DS_Store
