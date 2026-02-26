@@ -137,42 +137,38 @@ async def run():
                 "--window-size=1920,1080",
             ]
         )
+        # Use a real-looking user agent to avoid headless detection
         context = await browser.new_context(
             viewport={"width": 1920, "height": 1080},
-            accept_downloads=True
+            accept_downloads=True,
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/122.0.0.0 Safari/537.36"
+            ),
         )
         page = await context.new_page()
 
 
-        # ── STEP 1: Home Page ────────────────────────────────────────────────
-        separator("STEP 1: Opening Definedge Home Page")
-        await page.goto("https://www.definedgesecurities.com/", wait_until="domcontentloaded", timeout=60000)
-        log("Home page loaded.")
+        # ── STEP 1: Go directly to login URL (skip home page in CI) ────────
+        separator("STEP 1: Opening Login Page")
+        login_url = config["CREDENTIALS"].get("URL", "").strip()
+        if not login_url:
+            login_url = (
+                "https://signin.definedgesecurities.com/auth/realms/debroking/"
+                "protocol/openid-connect/auth?response_type=code&client_id=dashboard"
+                "&redirect_uri=https://myaccount.definedgesecurities.com/ssologin"
+                "&state=e2cf559f-356c-425a-87e3-032097f643d0&login=true&scope=openid"
+            )
+        log("Navigating to login URL...")
+        page1 = page  # In CI, go directly — no home page popup dance
+        await page1.goto(login_url, wait_until="domcontentloaded", timeout=60000)
+        log("Login page loaded.")
+        await save_screenshot(page1, "login_page_loaded")
 
-        await page.get_by_role("link", name="Login").wait_for(state="visible", timeout=15000)
-        await page.keyboard.press("Escape")
-
-
-        # ── STEP 2: Click Login → Opens popup ────────────────────────────────
-        separator("STEP 2: Login Popup")
-        log("Clicking Login link...")
-        page1 = None
-        for attempt in range(3):
-            try:
-                async with page.expect_popup(timeout=5000) as page1_info:
-                    await page.get_by_role("link", name="Login").click()
-                page1 = await page1_info.value
-                break
-            except PlaywrightTimeout:
-                log(f"Login attempt {attempt+1} blocked — dismissing & retrying...")
-                await page.keyboard.press("Escape")
-                await asyncio.sleep(0.2)
-        if page1 is None:
-            await save_screenshot(page, "login_popup_failed")
-            notify("❌ Could not open login page after 3 attempts.")
-            sys.exit(1)
-        await page1.wait_for_load_state("domcontentloaded", timeout=30000)
-        log("Login popup opened.")
+        # Wait for UCC field to confirm login form is ready
+        await page1.get_by_role("textbox", name="UCC").wait_for(state="visible", timeout=30000)
+        log("Login form ready.")
 
 
         # ── STEP 3: Enter UCC + Password ─────────────────────────────────────
@@ -678,5 +674,15 @@ async def run():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+async def main():
+    """Wrapper that catches fatal errors and saves debug screenshots."""
+    try:
+        await run()
+    except Exception as fatal:
+        log(f"FATAL ERROR: {fatal}")
+        notify(f"❌ <b>RZone Scanner CRASHED</b>\n{fatal}")
+        raise
+
+
 if __name__ == "__main__":
-    asyncio.run(run())
+    asyncio.run(main())
