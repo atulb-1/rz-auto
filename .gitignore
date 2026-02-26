@@ -4,8 +4,10 @@ config - Copy.ini
 # Virtual environment
 venv/
 
-# Downloads (local)
+# Downloads (local only — not CI exports)
 downloads/
+
+# DO NOT add exports/ here — CI commits CSVs to exports/ folder
 
 # Debug screenshots
 screenshots/

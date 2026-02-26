@@ -13,10 +13,13 @@ on:
   schedule:
     - cron: '0 3 * * 1-5'
 
+permissions:
+  contents: write   # needed to push commits back to repo
+
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 120  # 2 hour hard limit for the entire job
+    timeout-minutes: 120
 
     steps:
       - name: Checkout repository
@@ -40,7 +43,7 @@ jobs:
           RZONE_PASSWORD: ${{ secrets.RZONE_PASSWORD }}
           RZONE_TOTP_SECRET: ${{ secrets.RZONE_TOTP_SECRET }}
           RZONE_STRATEGIES: ${{ inputs.strategies || secrets.RZONE_STRATEGIES }}
-          RZONE_DOWNLOAD_DIR: ./downloads
+          RZONE_DOWNLOAD_DIR: ./exports
           RZONE_TG_BOT_TOKEN: ${{ secrets.RZONE_TG_BOT_TOKEN }}
           RZONE_TG_CHAT_ID: ${{ secrets.RZONE_TG_CHAT_ID }}
         run: python ci/build_config.py
@@ -48,17 +51,21 @@ jobs:
       - name: Run RZone Scanner (headless)
         run: python ci/rzone_scanner_ci.py
 
-      - name: Upload exported CSVs
+      - name: Commit exported CSVs to repo
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rzone-exports-${{ github.run_number }}
-          path: downloads/
-          retention-days: 90
-          if-no-files-found: warn
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add exports/ -f
+          if git diff --cached --quiet; then
+            echo "No new export files to commit."
+          else
+            git commit -m "📊 Scan exports $(date +'%d-%m-%Y %H:%M') UTC"
+            git push
+          fi
 
       - name: Upload debug screenshots
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: debug-screenshots-${{ github.run_number }}
