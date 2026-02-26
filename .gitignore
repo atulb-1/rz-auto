@@ -1,6 +1,6 @@
 # Credentials — NEVER commit
 config.ini
-
+config - Copy.ini
 # Virtual environment
 venv/
 
