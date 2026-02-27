@@ -96,6 +96,25 @@ def notify(msg):
     log(msg)
     tg(msg)
 
+async def dismiss_overlay(page):
+    """Dismiss any GWT popup glass overlay that blocks pointer events."""
+    try:
+        glass = page.locator("div.gwt-PopupPanelGlass")
+        if await glass.first.is_visible():
+            log("GWT overlay detected — dismissing...")
+            await page.keyboard.press("Escape")
+            await asyncio.sleep(0.5)
+            if await glass.first.is_visible():
+                await page.evaluate(
+                    "document.querySelectorAll('.gwt-PopupPanelGlass').forEach(e => e.remove())"
+                )
+                await asyncio.sleep(0.3)
+                log("Overlay removed via JS")
+            else:
+                log("Overlay dismissed via Escape")
+    except Exception:
+        pass
+
 async def save_screenshot(page, name):
     """Save a debug screenshot (for CI artifact upload)."""
     try:
@@ -347,6 +366,9 @@ async def run():
                         notify(f"🔄 Retrying <b>{strategy}</b> (attempt {attempt})")
                         await asyncio.sleep(3)
 
+                    # Dismiss any leftover GWT overlay from previous strategy
+                    await dismiss_overlay(page2)
+
                     # 9a. Check Mmfy checkbox
                     log("Checking Mmfy checkbox...")
                     mmfy_label = page2.get_by_role("cell", name=re.compile(r"Group\s*:")).locator("label")
@@ -382,6 +404,7 @@ async def run():
                     log(f"Strategy '{strategy}' selected")
 
                     # 9c. Uncheck Mmfy checkbox
+                    await dismiss_overlay(page2)
                     log("Unchecking Mmfy checkbox...")
                     mmfy_label_after = page2.get_by_role("cell", name=re.compile(r"Group\s*:")).locator("label")
                     await mmfy_label_after.wait_for(state="visible", timeout=10000)
