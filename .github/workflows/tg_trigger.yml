@@ -1,0 +1,109 @@
+name: Telegram Trigger
+
+on:
+  # Poll every 10 minutes during market hours: 8:30 AM–4:30 PM IST (3:00–11:00 AM UTC), Mon–Fri
+  schedule:
+    - cron: '*/10 3-11 * * 1-5'
+  workflow_dispatch:  # Allow manual test of this listener itself
+
+permissions:
+  actions: write  # Needed so github.token can dispatch the scan workflow
+
+jobs:
+  listen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Poll Telegram — trigger scan if /scan received
+        env:
+          TG_TOKEN:   ${{ secrets.RZONE_TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.RZONE_TG_CHAT_ID }}
+          GH_TOKEN:   ${{ github.token }}
+          REPO:       ${{ github.repository }}
+        run: |
+          python3 <<'PYEOF'
+          import requests, time, os, sys
+          from datetime import datetime, timezone
+
+          TG_TOKEN   = os.environ['TG_TOKEN']
+          TG_CHAT_ID = os.environ['TG_CHAT_ID']
+          GH_TOKEN   = os.environ['GH_TOKEN']
+          REPO       = os.environ['REPO']
+          GH_HEADERS = {
+              "Authorization": f"token {GH_TOKEN}",
+              "Accept": "application/vnd.github.v3+json"
+          }
+
+          def tg_send(msg):
+              try:
+                  requests.post(
+                      f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
+                      data={"chat_id": TG_CHAT_ID, "text": msg, "parse_mode": "HTML"},
+                      timeout=10
+                  )
+              except Exception as e:
+                  print(f"Telegram send error: {e}")
+
+          # ── 1. Get recent Telegram messages ─────────────────────────────────
+          now = time.time()
+          resp = requests.get(
+              f"https://api.telegram.org/bot{TG_TOKEN}/getUpdates",
+              params={"limit": 20, "timeout": 0},
+              timeout=15
+          )
+          if not resp.ok:
+              print(f"Telegram API error: {resp.status_code}")
+              sys.exit(0)
+
+          # ── 2. Check for /scan command sent in the last 11 minutes ──────────
+          trigger = False
+          for upd in resp.json().get('result', []):
+              msg     = upd.get('message', {})
+              text    = msg.get('text', '').strip().lower()
+              chat_id = str(msg.get('chat', {}).get('id', ''))
+              age     = now - msg.get('date', 0)
+
+              if '/scan' in text and chat_id == TG_CHAT_ID and age < 660:
+                  trigger = True
+                  print(f"Found /scan command (age={int(age)}s)")
+                  break
+
+          if not trigger:
+              print("No recent /scan command — nothing to do.")
+              sys.exit(0)
+
+          # ── 3. Avoid double-trigger: skip if scan ran in last 11 minutes ────
+          r = requests.get(
+              f"https://api.github.com/repos/{REPO}/actions/workflows/rz_scan.yml/runs",
+              headers=GH_HEADERS,
+              params={"per_page": 1},
+              timeout=15
+          )
+          if r.ok:
+              runs = r.json().get('workflow_runs', [])
+              if runs:
+                  created_ts = datetime.fromisoformat(
+                      runs[0]['created_at'].replace('Z', '+00:00')
+                  ).timestamp()
+                  if now - created_ts < 660:
+                      print(f"Scan already triggered {int(now - created_ts)}s ago — skipping.")
+                      sys.exit(0)
+
+          # ── 4. Dispatch the scan workflow ────────────────────────────────────
+          r = requests.post(
+              f"https://api.github.com/repos/{REPO}/actions/workflows/rz_scan.yml/dispatches",
+              headers=GH_HEADERS,
+              json={"ref": "main"},
+              timeout=15
+          )
+          if r.status_code == 204:
+              print("Scan workflow dispatched successfully!")
+              tg_send(
+                  "🚀 <b>RZ Scan triggered via Telegram!</b>\n"
+                  "Scanner is starting up — you'll get results when done."
+              )
+          else:
+              print(f"Dispatch failed: {r.status_code} — {r.text}")
+              tg_send(f"❌ Failed to trigger scan ({r.status_code}). Check GitHub Actions.")
+          PYEOF
