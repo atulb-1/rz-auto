@@ -39,6 +39,8 @@ config       = load_config()
 UCC          = config["CREDENTIALS"]["UCC"].strip()
 PASSWORD     = config["CREDENTIALS"]["PASSWORD"].strip()
 TOTP_SECRET  = config["CREDENTIALS"]["TOTP_SECRET"].strip()
+DOWNLOAD_DIR = Path(config["SETTINGS"]["DOWNLOAD_DIR"].strip())
+DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -70,7 +72,7 @@ async def run():
         context = await browser.new_context(
             viewport=None,
             no_viewport=True,
-            accept_downloads=True
+            accept_downloads=True,
         )
         page = await context.new_page()
 
@@ -164,6 +166,18 @@ async def run():
             await analyse_btn.click()
         page2 = await page2_info.value
         log(f"RZ popup captured →  {page2.url}")
+
+        # Set download path on the RZ page so manual Export saves to a known folder
+        try:
+            cdp = await context.new_cdp_session(page2)
+            await cdp.send("Page.setDownloadBehavior", {
+                "behavior": "allow",
+                "downloadPath": str(DOWNLOAD_DIR),
+            })
+            await cdp.detach()
+            log(f"Downloads will save to: {DOWNLOAD_DIR}")
+        except Exception as e:
+            log(f"Could not set download path (non-fatal): {e}")
 
         # RZ SPA does client-side redirects — wait for page to stabilize
         log("Waiting for RZone page to settle...")
@@ -261,7 +275,8 @@ async def run():
 
         # ── DONE — Hand over to user ─────────────────────────────────────────
         separator("ALL DONE — Browser is yours!")
-        log("✅ Logged in, RZone open, I Agree handled.")
+        log("✅ Logged in, RZ open, I Agree handled.")
+        log(f"📁 Downloads will save to: {DOWNLOAD_DIR}")
         log("The browser will stay open. Do your work manually.")
         log("")
         log("Press ENTER in this window when you're done to close the browser.")
