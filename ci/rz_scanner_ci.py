@@ -47,6 +47,15 @@ TG_CHAT_ID = config.get("TELEGRAM", "CHAT_ID", fallback="").strip()
 TG_ENABLED = bool(TG_TOKEN and TG_CHAT_ID)
 
 DATE_STR = datetime.now().strftime("%d_%m_%Y")
+
+# Morning (7:15 AM IST ≈ 1:45 UTC) or Evening (9:00 PM IST ≈ 15:30 UTC)
+import os
+RUN_LABEL = os.environ.get("RZ_RUN_LABEL", "").strip()
+if not RUN_LABEL:
+    from datetime import timezone
+    utc_hour = datetime.now(timezone.utc).hour
+    RUN_LABEL = "morning" if utc_hour < 12 else "evening"
+
 DOWNLOAD_DIR = DOWNLOAD_DIR / DATE_STR
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -134,6 +143,7 @@ async def run():
     log(f"Strategies : {STRATEGIES}")
     log(f"Save folder: {DOWNLOAD_DIR}")
     log(f"Date suffix: {DATE_STR}")
+    log(f"Run label  : {RUN_LABEL}")
     log(f"Telegram   : {'Enabled' if TG_ENABLED else 'Disabled'}")
     log(f"Screenshots: {SCREENSHOTS_DIR}")
 
@@ -141,7 +151,7 @@ async def run():
         log("ERROR: No strategies configured.")
         sys.exit(1)
 
-    tg(f"🚀 <b>RZ Scanner Started (CI)</b>\n"
+    tg(f"🚀 <b>RZ Scanner Started (CI — {RUN_LABEL})</b>\n"
        f"Strategies: {len(STRATEGIES)}\n"
        f"Date: {DATE_STR}")
 
@@ -706,7 +716,7 @@ async def run():
 
                     # 9f. Export / save file
                     if scan_done and no_qualified_scrips:
-                        filename  = f"{strategy}_{DATE_STR}_No_Qualified_Scrips.csv"
+                        filename  = f"{strategy}_{DATE_STR}_{RUN_LABEL}_No_Qualified_Scrips.csv"
                         save_path = DOWNLOAD_DIR / filename
                         save_path.write_text("")
                         log(f"Created empty file: {filename}")
@@ -716,7 +726,7 @@ async def run():
 
                     elif scan_done:
                         suffix = "_filter_not_qualified" if filter_not_qualified else ""
-                        filename  = f"{strategy}_{DATE_STR}{suffix}.csv"
+                        filename  = f"{strategy}_{DATE_STR}_{RUN_LABEL}{suffix}.csv"
                         save_path = DOWNLOAD_DIR / filename
                         log(f"Clicking Export → saving as: {filename}")
                         try:
@@ -765,7 +775,7 @@ async def run():
 
         summary = "\n".join(results)
         log(f"\nResults:\n{summary}")
-        tg(f"🏁 <b>RZ Scanner Complete (CI)</b>\n\n"
+        tg(f"🏁 <b>RZ Scanner Complete (CI — {RUN_LABEL})</b>\n\n"
            + "\n".join(results)
            + f"\n\nDate: {DATE_STR}")
 
