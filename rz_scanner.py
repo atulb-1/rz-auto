@@ -460,6 +460,20 @@ async def run():
                     await page2.get_by_role("button", name="Scan").click()
                     log("Scan started...")
 
+                    # 9d2. Wait for UI to reset — Export button from previous
+                    #      strategy may still be visible; wait for it to disappear
+                    #      so we don't falsely detect "Scan completed! (0s)"
+                    export_btn_pre = page2.get_by_role("button", name="Export")
+                    await asyncio.sleep(1)
+                    for _wait in range(20):  # up to 10 seconds
+                        try:
+                            if not await export_btn_pre.is_visible() or not await export_btn_pre.is_enabled():
+                                break
+                        except Exception:
+                            break
+                        await asyncio.sleep(0.5)
+                    await asyncio.sleep(1)
+
                     # 9e. Wait for scan result — 15 min total, cancel & retry after 8 min or if stuck
                     CANCEL_RETRY_SECS = 8 * 60   # 8 minutes
                     HARD_TIMEOUT_SECS = 15 * 60  # 15 minutes
