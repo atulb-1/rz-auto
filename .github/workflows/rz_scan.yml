@@ -9,9 +9,12 @@ on:
         required: false
         type: string
 
-  # Scheduled: 8:30 AM IST = 3:00 AM UTC daily (Monday–Friday)
+  # Two daily scans (Monday–Friday):
+  #   7:15 AM IST = 1:45 AM UTC
+  #   9:00 PM IST = 3:30 PM UTC
   schedule:
-    - cron: '0 3 * * 1-5'
+    - cron: '45 1 * * 1-5'
+    - cron: '30 15 * * 1-5'
 
 permissions:
   contents: read   # public repo only needs read; exports go to private repo
