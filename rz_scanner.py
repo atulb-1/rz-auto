@@ -98,9 +98,23 @@ def notify(msg):
     tg(msg)
 
 
+SCREENSHOTS_DIR = Path(__file__).parent / "screenshots"
+SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
+async def save_screenshot(page, name):
+    """Save a debug screenshot for troubleshooting."""
+    try:
+        ts = datetime.now().strftime("%H%M%S")
+        path = SCREENSHOTS_DIR / f"{ts}_{name}.png"
+        await page.screenshot(path=path, full_page=True)
+        log(f"Screenshot saved: {path.name}")
+    except Exception as e:
+        log(f"Screenshot failed: {e}")
+
+
 async def dismiss_overlay(page):
     """Dismiss any GWT popup glass overlay that blocks pointer events."""
     try:
@@ -563,17 +577,35 @@ async def run():
                         try:
                             if await validation_popup.first.is_visible():
                                 log("⚠️  Validation Filter not qualified!")
+                                save_screenshot(page2, f"validation_popup_loop_{strategy}")
                                 filter_not_qualified = True
 
+                                # Close popup: try XPath, then role-based, then Escape
                                 log("Closing popup...")
+                                closed = False
                                 close_btn = page2.locator("xpath=/html/body/div[7]/div/table/tbody/tr[3]/td/div/table/tbody/tr/td/button")
                                 try:
                                     await close_btn.wait_for(state="visible", timeout=3000)
                                     await close_btn.click()
+                                    closed = True
                                 except PlaywrightTimeout:
-                                    await page2.get_by_role("button", name=re.compile(r"Close|OK", re.IGNORECASE)).first.click()
+                                    pass
+                                if not closed:
+                                    try:
+                                        await page2.get_by_role("button", name=re.compile(r"Close|OK", re.IGNORECASE)).first.click()
+                                        closed = True
+                                    except Exception as close_err:
+                                        log(f"Role-based close failed: {close_err}")
+                                if not closed:
+                                    try:
+                                        await page2.keyboard.press("Escape")
+                                    except Exception as esc_err:
+                                        log(f"Escape key failed: {esc_err}")
                                 await asyncio.sleep(1)
                                 log("Popup closed.")
+
+                                # Dismiss GWT overlay left by popup
+                                await dismiss_overlay(page2)
 
                                 log("Unchecking Market trend filter...")
                                 market_filter_cb = page2.locator(
@@ -584,8 +616,11 @@ async def run():
                                     await market_filter_cb.wait_for(state="visible", timeout=3000)
                                     await market_filter_cb.click()
                                 except PlaywrightTimeout:
-                                    mf = page2.get_by_role("cell", name=re.compile(r"Market.*Filter|Market.*Trend", re.IGNORECASE)).locator("label, input, span").first
-                                    await mf.click()
+                                    try:
+                                        mf = page2.get_by_role("cell", name=re.compile(r"Market.*Filter|Market.*Trend", re.IGNORECASE)).locator("label, input, span").first
+                                        await mf.click()
+                                    except Exception:
+                                        log("⚠️  Could not uncheck Market trend filter (in-loop)")
                                 await asyncio.sleep(0.5)
                                 log("Market trend filter unchecked ✅")
                                 notify(f"⚠️ <b>{strategy}</b>: Filter not qualified — re-scanning without market filter")
@@ -597,8 +632,8 @@ async def run():
                                 last_progress_str  = ""
                                 last_progress_time = time.time()
                                 continue
-                        except Exception:
-                            pass
+                        except Exception as vf_loop_err:
+                            log(f"⚠️  Validation popup handling error (in-loop): {vf_loop_err}")
 
                         # ── Check for "Qualified Scrips : 0" ──
                         try:
@@ -654,6 +689,7 @@ async def run():
                     try:
                         if await validation_popup.first.is_visible():
                             log("⚠️  Validation Filter popup detected (post-scan)!")
+                            save_screenshot(page2, f"validation_popup_post_{strategy}")
                             filter_not_qualified = True
 
                             # Close the popup
@@ -670,16 +706,19 @@ async def run():
                                 try:
                                     await page2.get_by_role("button", name=re.compile(r"Close|OK", re.IGNORECASE)).first.click()
                                     closed = True
-                                except Exception:
-                                    pass
+                                except Exception as close_err:
+                                    log(f"Role-based close failed: {close_err}")
                             if not closed:
                                 # Last resort: press Escape or click any visible button in the popup
                                 try:
                                     await page2.keyboard.press("Escape")
-                                except Exception:
-                                    pass
+                                except Exception as esc_err:
+                                    log(f"Escape key failed: {esc_err}")
                             await asyncio.sleep(1)
                             log("Popup closed.")
+
+                            # Dismiss GWT overlay that may block checkbox click
+                            await dismiss_overlay(page2)
 
                             # Uncheck Market trend filter
                             log("Unchecking Market trend filter...")
