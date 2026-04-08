@@ -158,6 +158,7 @@ async def run():
     async with async_playwright() as p:
         browser = await p.chromium.launch(
             headless=True,
+            slow_mo=300,
             args=[
                 "--no-sandbox",
                 "--disable-setuid-sandbox",
