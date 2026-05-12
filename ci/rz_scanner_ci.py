@@ -254,6 +254,25 @@ async def run():
 
         # ── STEP 6: Analyse & Trade → Opens RZone popup ──────────────────────
         separator("STEP 6: RZ → Analyse & Trade")
+
+        # Dismiss sidebar overlay that sometimes appears after login
+        try:
+            sidebar = page1.locator("div.sidebar-overlay")
+            if await sidebar.first.is_visible(timeout=2000):
+                log("Sidebar overlay detected — dismissing...")
+                await page1.keyboard.press("Escape")
+                await asyncio.sleep(0.5)
+                if await sidebar.first.is_visible(timeout=1000):
+                    await page1.evaluate(
+                        "document.querySelectorAll('.sidebar-overlay').forEach(e => e.remove())"
+                    )
+                    await asyncio.sleep(0.3)
+                    log("Sidebar overlay removed via JS")
+                else:
+                    log("Sidebar overlay dismissed via Escape")
+        except Exception:
+            pass
+
         log("Clicking Analyse & Trade button...")
         async with page1.expect_popup() as page2_info:
             await analyse_btn.click()
