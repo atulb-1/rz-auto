@@ -421,6 +421,7 @@ async def run():
 
         # ── STEP 8: Momentum Scanner ─────────────────────────────────────────
         separator("STEP 8: Opening Momentum Scanner")
+        await dismiss_overlay(page2)
         log("Clicking Momentum Scanner...")
         await page2.get_by_text("Momentum Scanner").click()
         await asyncio.sleep(1)
