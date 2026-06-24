@@ -431,7 +431,18 @@ async def run():
         await asyncio.sleep(3)
 
         log("Waiting for scanner panel to load...")
-        await page2.get_by_role("button", name="Scan").wait_for(state="visible", timeout=30000)
+        scan_btn = page2.get_by_role("button", name="Scan")
+        for wait_round in range(6):
+            await dismiss_overlay(page2)
+            try:
+                await scan_btn.wait_for(state="visible", timeout=10000)
+                break
+            except Exception:
+                await save_screenshot(page2, f"scan_btn_wait_{wait_round}")
+                log(f"Scan button not visible yet (round {wait_round + 1}/6) — dismissing overlays and retrying...")
+        else:
+            await save_screenshot(page2, "scan_btn_timeout_final")
+            raise Exception("Scan button not visible after 60s of retries")
         log("Momentum Investing Scanner opened")
 
         notify("✅ RZ Momentum Scanner ready")
