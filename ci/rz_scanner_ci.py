@@ -106,23 +106,95 @@ def notify(msg):
     tg(msg)
 
 async def dismiss_overlay(page):
-    """Dismiss any GWT popup glass overlay that blocks pointer events."""
+    """Dismiss any popup, overlay, or modal that blocks pointer events."""
+    dismissed = False
+
+    # 1. GWT glass overlay
     try:
         glass = page.locator("div.gwt-PopupPanelGlass")
-        if await glass.first.is_visible():
+        if await glass.first.is_visible(timeout=500):
             log("GWT overlay detected — dismissing...")
             await page.keyboard.press("Escape")
             await asyncio.sleep(0.5)
-            if await glass.first.is_visible():
+            if await glass.first.is_visible(timeout=500):
                 await page.evaluate(
                     "document.querySelectorAll('.gwt-PopupPanelGlass').forEach(e => e.remove())"
                 )
                 await asyncio.sleep(0.3)
-                log("Overlay removed via JS")
+                log("GWT overlay removed via JS")
             else:
-                log("Overlay dismissed via Escape")
+                log("GWT overlay dismissed via Escape")
+            dismissed = True
     except Exception:
         pass
+
+    # 2. Sidebar overlay (appears after login)
+    try:
+        sidebar = page.locator("div.sidebar-overlay")
+        if await sidebar.first.is_visible(timeout=500):
+            log("Sidebar overlay detected — dismissing...")
+            await page.keyboard.press("Escape")
+            await asyncio.sleep(0.5)
+            if await sidebar.first.is_visible(timeout=500):
+                await page.evaluate(
+                    "document.querySelectorAll('.sidebar-overlay').forEach(e => e.remove())"
+                )
+                await asyncio.sleep(0.3)
+                log("Sidebar overlay removed via JS")
+            else:
+                log("Sidebar overlay dismissed via Escape")
+            dismissed = True
+    except Exception:
+        pass
+
+    # 3. Generic modal/popup with OK, Close, Cancel, or Got It buttons
+    try:
+        for label in ["OK", "Ok", "Close", "Cancel", "Got It", "Got it", "Dismiss"]:
+            btn = page.get_by_role("button", name=label, exact=True)
+            if await btn.first.is_visible(timeout=300):
+                text_near = ""
+                try:
+                    text_near = await btn.first.evaluate(
+                        "el => (el.closest('.modal, .popup, [role=dialog], [role=alertdialog], .gwt-DialogBox, .gwt-PopupPanel') || el.parentElement).innerText.slice(0, 120)"
+                    )
+                except Exception:
+                    pass
+                log(f"Unexpected popup detected ('{label}' button): {text_near.strip()[:100]}")
+                await btn.first.click()
+                await asyncio.sleep(0.5)
+                log(f"Popup dismissed via '{label}' button")
+                dismissed = True
+                break
+    except Exception:
+        pass
+
+    # 4. Any opaque overlay div intercepting pointer events (catch-all)
+    try:
+        removed = await page.evaluate("""() => {
+            const overlays = document.querySelectorAll(
+                '[class*="overlay"], [class*="modal-backdrop"], [class*="bg-opacity"]'
+            );
+            let count = 0;
+            for (const el of overlays) {
+                const s = getComputedStyle(el);
+                if (s.position === 'fixed' || s.position === 'absolute') {
+                    const r = el.getBoundingClientRect();
+                    if (r.width > window.innerWidth * 0.5 && r.height > window.innerHeight * 0.5) {
+                        el.remove();
+                        count++;
+                    }
+                }
+            }
+            return count;
+        }""")
+        if removed:
+            log(f"Catch-all: removed {removed} blocking overlay(s) via JS")
+            await asyncio.sleep(0.3)
+            dismissed = True
+    except Exception:
+        pass
+
+    return dismissed
 
 async def save_screenshot(page, name):
     """Save a debug screenshot (for CI artifact upload)."""
@@ -255,23 +327,7 @@ async def run():
         # ── STEP 6: Analyse & Trade → Opens RZone popup ──────────────────────
         separator("STEP 6: RZ → Analyse & Trade")
 
-        # Dismiss sidebar overlay that sometimes appears after login
-        try:
-            sidebar = page1.locator("div.sidebar-overlay")
-            if await sidebar.first.is_visible(timeout=2000):
-                log("Sidebar overlay detected — dismissing...")
-                await page1.keyboard.press("Escape")
-                await asyncio.sleep(0.5)
-                if await sidebar.first.is_visible(timeout=1000):
-                    await page1.evaluate(
-                        "document.querySelectorAll('.sidebar-overlay').forEach(e => e.remove())"
-                    )
-                    await asyncio.sleep(0.3)
-                    log("Sidebar overlay removed via JS")
-                else:
-                    log("Sidebar overlay dismissed via Escape")
-        except Exception:
-            pass
+        await dismiss_overlay(page1)
 
         log("Clicking Analyse & Trade button...")
         async with page1.expect_popup() as page2_info:
