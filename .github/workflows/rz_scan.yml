@@ -9,24 +9,32 @@ on:
         required: false
         type: string
 
-  # Evening scan only (Monday–Friday): 9:00 PM IST = 3:30 PM UTC.
-  # It feeds the NEXT morning's rebalance report, so it has ~11h of slack and
-  # GitHub's scheduler being late does not matter here.
+  # ⚠️  THERE IS DELIBERATELY NO `schedule:` BLOCK. DO NOT ADD ONE.
   #
-  # THE MORNING SCAN IS NO LONGER SCHEDULED HERE — do not add it back.
-  # GitHub was firing this `schedule:` block 70–80 minutes late: a 00:55 UTC
-  # cron produced runs *created* at 02:05–02:16 UTC, and with ~16 min of
-  # scanning that left the downstream 08:15 IST rebalance report roughly 13
-  # minutes of margin, on a delay with no ceiling. Runner queue was never the
-  # problem — it measured 0s on every run.
-  #
-  # The morning run is now a workflow_dispatch fired by a Railway cron at
-  # 01:30 UTC = 07:00 IST, which starts within a second of being asked.
-  # Trigger lives in the rotational_investing_system repo:
+  # Both daily runs are fired by a Railway cron as workflow_dispatch:
+  #     01:30 UTC = 07:00 IST   morning
+  #     15:30 UTC = 21:00 IST   evening
+  # One Railway service, cron `30 1,15 * * 1-5`. It lives in the
+  # rotational_investing_system repo:
   #   scripts/trigger_rz_scan.py  +  railway.trigger.json
-  # Re-adding a morning cron here would run the scan TWICE every weekday.
-  schedule:
-    - cron: '30 15 * * 1-5'
+  #
+  # WHY, measured rather than assumed. GitHub fires `schedule:` events late —
+  # badly. The morning cron (00:55 UTC) produced runs *created* at 02:05–02:16
+  # UTC, 70–80 minutes late; `created_at` is already post-delay. One Friday
+  # evening cron (15:30 UTC) did not fire until 00:02 UTC the next day — 8.5
+  # hours — and then failed. The runner queue was never the problem: it
+  # measured 0s on every single run. It is GitHub's scheduler itself.
+  #
+  # That mattered downstream: the rebalance report runs 08:15 IST and consumes
+  # these CSVs. A run created 02:16 plus ~16 min of scanning finished ~02:32,
+  # leaving ~13 minutes of margin on a delay with no ceiling.
+  #
+  # A dispatched run is created the same SECOND it is requested (verified
+  # repeatedly), so the start time means what it says.
+  #
+  # Re-adding any cron here would run the scan TWICE a day: once from Railway,
+  # once from GitHub whenever it gets round to it — two concurrent RZone
+  # logins on one account and two processes pushing CSVs to the same repo.
 
 permissions:
   contents: read   # public repo only needs read; exports go to private repo
